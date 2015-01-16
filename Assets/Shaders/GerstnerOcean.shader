@@ -1,37 +1,48 @@
 ﻿Shader "Custom/GerstnerOcean" {
 	Properties {
 		_Tess ("Tessellation", Range(1,32)) = 4
-		_Color ("Main Color", Color) = (1,1,1,1)
+		_WaterColor ("Main Color", Color) = (1,1,1,1)
 		_Shininess ("Shininess", Range (0.03, 1)) = 1
-		_MainTex ("Base (RGB)", 2D) = "white" {}
+		//_MainTex ("Base (RGB)", 2D) = "white" {}
 		_BumpMap ("Bump Map", 2D) = "bump" {}
 		_BumpMap2 ("Bump Map 2", 2D) = "bump" {}
 		_ReflMap("Reflection Map", Cube) = "cube" {}
-		_T ("Repeat Time", Float) = 0.5
-		_Steepness("Steepness", Range(0.01, 1.0)) = 0.5
 		_ReflecTivity("Reflectivity", Range(0.0, 1.0)) = 1.0
+		_SunPower ("Sun Power", Float) = 1.0
+		_NumWaves ("Number of waves", Range(1,32)) = 4
 	}
 	SubShader {
 		Tags { "RenderType"="Opaque" }
 		LOD 200
 		
 		CGPROGRAM
-		#pragma surface surf BlinnPhong addshadow fullforwardshadows vertex:vert tessellate:tessFixed 
+		#pragma surface surf Lambert addshadow fullforwardshadows vertex:vert tessellate:tessFixed 
 		#pragma debug
-		#define numWaves 7
+		#define numWaves 32
 		#define PI 3.14159265
+		#define G 9.81
 
 		uniform sampler2D _MainTex;
 		uniform sampler2D _BumpMap;
 		uniform sampler2D _BumpMap2;
 		uniform samplerCUBE _ReflMap;
 		uniform half _Tess;
-		uniform fixed4 _Color;
+		uniform fixed4 _WaterColor;
 		uniform float4x4 _Waves;
-		uniform half _T;
-		uniform half _Steepness;
+		uniform float4x4 _Waves2;
+		uniform float4x4 _Waves3;
+		uniform float4x4 _Waves4;
+
+		uniform float4x4 _Waves5;
+		uniform float4x4 _Waves6;
+		uniform float4x4 _Waves7;
+		uniform float4x4 _Waves8;
 		uniform half _ReflecTivity;
 		uniform half _Shininess;
+		uniform float3 _SunDir;
+		uniform float3 _SunColor;
+		uniform float _SunPower;
+		uniform int _NumWaves;
 
 		// THe struct describing a wave.
 		struct Wave {
@@ -47,7 +58,6 @@
 			float4 texcoord : TEXCOORD0;
 			float4 tangent : TANGENT;
 		};
-
 
 		// compute the gerstner offset for one wave 
 		float3 getGerstnerOffset(float2 x0, Wave w, float time)
@@ -81,6 +91,30 @@
 			T.z = w.amp * (pow(w.dir.y, 2) / k) * cos( dot(w.dir, x0) - w.freq * time + w.phase);
 			return T;		
 		}
+
+		float fresnel(float3 V, float3 N)
+		{	half n1 = 1.0;
+			half n2 = 1.333;
+			float cosTheta_i = abs( dot(V, N) );
+			float theta_i = acos( cosTheta_i );
+
+			float inner = sqrt( 1 - pow((n1/n2 * sin(theta_i)), 2));
+			float numerator =  (n1 * cosTheta_i) - (n2 * inner);
+			float denominator = (n1 * cosTheta_i) + (n2 * inner);
+			float Rs = pow( abs(numerator/denominator), 2);
+			numerator = (n1*inner) - (n2 * cosTheta_i);
+			denominator = (n1*inner) + (n2 * cosTheta_i);
+			float Rt = pow( abs(numerator/denominator), 2);
+			
+			return (Rs + Rt) / 2;
+		}	
+
+		float3 computeSunColor(float3 V, float3 N)
+		{
+			float3 HalfVector = normalize( abs( V + _SunDir));
+			return _SunColor * pow( abs( dot(HalfVector, N)), _SunPower);
+		}
+
 		// return a uniform tesselation
 		float4 tessFixed()
         {
@@ -95,12 +129,12 @@
 			// However one cant pick freely since this will result in the waves that bend over and into itself.
 			// there are constraints to the value and basicly we can only pick amplitude and direction
 			// we will later create the waves from a script on the CPU and then pass it to the shader.
-			half w0 = 2*PI / _T;						// base frequency 
+			/*half w0 = 2*PI / _T;						// base frequency 
 			half amp = 3.25;							// amplitude wave 1
 			half wl = (2*PI*amp*numWaves)/(_Steepness);	// wavelength
 			half s = 10;								// speed that does not do anything
 			half k = 2*PI/wl;							// wavenumber. k*amp must be < 1 so that waves dont roll over into intself
-			half freq = sqrt(9.81* k)/_T;				// dispersion relation
+			half freq = sqrt(9.81* k);				// dispersion relation
 			half w1 = (freq/w0) * w0;					// frequency for wave 1 around base frequency
 
 			half amp2 = 5.50;
@@ -126,10 +160,15 @@
 			half k5 = 2*PI/wl5;
 			half freq5 = sqrt(9.81* k5);
 			half w5 = (freq5/w0) * w0;
-
-			// array of waves. The last 3 should not be used since they give choppy and weird behavior.
-			Wave W[7] = {
 			
+				{_Waves[0][0], _Waves[0][1], s*k, float2(_Waves[0][2],_Waves[0][3] },
+				{_Waves[1][0], _Waves[1][1], s*k, float2(_Waves[1][2],_Waves[1][3] },
+				{_Waves[2][0], _Waves[2][1], s*k, float2(_Waves[2][2],_Waves[2][3] },
+				{_Waves[3][0], _Waves[3][1], s*k, float2(_Waves[3][2],_Waves[3][3] },
+			*/
+			// array of waves. The last 3 should not be used since they give choppy and weird behavior.
+			/*Wave W[8] = {
+				{_MyWave.x, _MyWave.y, 1.0, float2(_MyWave.z, _MyWave.w)},
 				{w1, amp, s*k, float2(-1.8, 1.12)*k},
 				{w2, amp2, s*k2, float2(2.30, -0.6)*k2},
 				{w3, amp3, s*k3, float2(1.60, 1.2)*k3},
@@ -138,14 +177,81 @@
 				{0.5, 0.2, 1.0, float2(-0.30, 0.7)},
 				{0.2, 0.3, 1.0, float2(-0.2, 0.5)}
 			};
+			*/
+			Wave W[32];
+			/*
+			float4x4 matrices[8] = {_Waves, _Waves2,_Waves3,_Waves4,_Waves5,_Waves6,_Waves7,_Waves8};
+			for(int i = 0; i < 8; i++)
+			{
+				float4x4 M = matrices[i];
+				for(int j = 0; j < 4; j++)
+				{
+					float4 row = M[j];
+					Wave w = {row.x, row.y, 0.10, float2(row.z, row.w)};
+					W[j] = w;
+				}
+			}
+			*/
+			for(int i = 0; i < 4; i++)
+			{
+				float4 row = _Waves[i];
+				Wave af = {row.x, row.y, 0.10, float2(row.z, row.w)};
+				W[i] = af;
+			}
+
+			for(int i = 0; i < 4; i++)
+			{
+				float4 row = _Waves2[i];
+				Wave af = {row.x, row.y, 0.10, float2(row.z, row.w)};
+				W[i+4] = af;
+			}
+			for(int i = 0; i < 4; i++)
+			{
+				float4 row = _Waves3[i];
+				Wave af = {row.x, row.y, 0.10, float2(row.z, row.w)};
+				W[i+8] = af;
+			}
+			for(int i = 0; i < 4; i++)
+			{
+				float4 row = _Waves4[i];
+				Wave af = {row.x, row.y, 0.10, float2(row.z, row.w)};
+				W[i+12] = af;
+			}
+
+			for(int i = 0; i < 4; i++)
+			{
+				float4 row = _Waves5[i];
+				Wave af = {row.x, row.y, 0.10, float2(row.z, row.w)};
+				W[i+16] = af;
+			}
+			for(int i = 0; i < 4; i++)
+			{
+				float4 row = _Waves6[i];
+				Wave af = {row.x, row.y, 0.10, float2(row.z, row.w)};
+				W[i+20] = af;
+			}
+			for(int i = 0; i < 4; i++)
+			{
+				float4 row = _Waves7[i];
+				Wave af = {row.x, row.y, 0.10, float2(row.z, row.w)};
+				W[i+24] = af;
+			}
+			for(int i = 0; i < 4; i++)
+			{
+				float4 row = _Waves8[i];
+				Wave af = {row.x, row.y, 0.10, float2(row.z, row.w)};
+				W[i+28] = af;
+			}
+			
 			// save the original point on the horizontal plane as x0
 			float2 x0 = vIn.vertex.xz;
 			float3 newPos = float3(0.0, 0.0, 0.0);
 			float3 tangent = float3(0, 0, 0);
 			float3 binormal = float3(0, 0, 0);
 
+			half nw = trunc(_NumWaves);
 			// iterate and sum together all waves.
-			for(int i = 0; i < numWaves; i++)
+			for(int i = 0; i < nw; i++)
 			{
 				Wave w = W[i];
 				newPos += getGerstnerOffset(x0, w, _Time.y);
@@ -175,18 +281,29 @@
 			float2 uv_BumpMap;
 			float2 uv_BumpMap2;
 			float3 worldRefl;
+			float3 worldNormal;
+			float3 viewDir;
 			INTERNAL_DATA
 		};
 
 		// compute final colors of surface
 		void surf (Input IN, inout SurfaceOutput o) {
-			half4 c = tex2D(_MainTex, IN.uv_MainTex);
-			o.Albedo = c.rgb * _Color.rgb;
-			o.Alpha = c.a;
-			o.Specular = _Shininess;
-			o.Normal = normalize(UnpackNormal (tex2D (_BumpMap, IN.uv_BumpMap)) + UnpackNormal (tex2D (_BumpMap2, IN.uv_BumpMap2)));
-			float3 worldRefl = WorldReflectionVector (IN, o.Normal);
-			o.Emission = texCUBE(_ReflMap, worldRefl).rgb * _ReflecTivity;
+			//half4 c = tex2D(_MainTex, IN.uv_MainTex);
+			//o.Albedo = c.rgb * _WaterColor.rgb;
+			o.Alpha = _WaterColor.a;
+			//o.Specular = _Shininess;
+			//o.Normal = normalize(UnpackNormal (tex2D (_BumpMap, IN.uv_BumpMap)) + IN.worldNormal) ;
+			o.Normal = normalize(UnpackNormal(tex2D(_BumpMap, IN.uv_BumpMap)) + UnpackNormal(tex2D(_BumpMap2, IN.uv_BumpMap2))  + IN.worldNormal);
+			float3 N = WorldNormalVector(IN, o.Normal);
+			float3 vDir = normalize(_WorldSpaceCameraPos-IN.worldPos); // inverse viewDirection, from worldPos to camera. 
+			float f = fresnel(vDir, N);
+			vDir = IN.viewDir;
+			//float3 skyColor = texCUBE(_ReflMap, WorldReflectionVector(IN, o.Normal)).rgb * _ReflecTivity;//* _ReflecTivity;
+			float3 sunColor = computeSunColor(vDir, N);
+			float3 skyColor = texCUBE(_ReflMap, WorldReflectionVector(IN, o.Normal)*float3(-1,1,1)).rgb;//flip x
+			o.Albedo = lerp(_WaterColor, skyColor, f) + sunColor;
+
+
 
 		}
 		ENDCG
