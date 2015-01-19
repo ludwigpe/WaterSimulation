@@ -8,7 +8,7 @@
 		_BumpDepth ("Bump depth", Range(0, 1.0)) = 1.0
 		_BumpMap ("Bump Map", 2D) = "bump" {}
 		_BumpMap2 ("Bump Map 2", 2D) = "bump" {}
-		_ReflecTivity("Reflectivity", Range(0.0, 1.0)) = 1.0
+		_ReflecTivity("Reflectivity", Range(0.0, 5.0)) = 1.0
 		_ReflMap("Reflection Map", Cube) = "cube" {}
 	}
 	SubShader {
@@ -90,7 +90,18 @@
 			}
 
 			float fresnel(float3 V, float3 N)
-			{	half n1 = 1.0;
+			{	
+				
+				half NdotL = max( dot(V, N), 0.0);
+				half fresnelBias = 0.4;
+				half fresnelPow = 5.0;
+				fresnelPow = _SunPower;
+
+				half facing  = (1.0 - NdotL);
+				return max( fresnelBias + (1-fresnelBias) * pow(facing, fresnelPow), 0.0);
+
+				/*
+				half n1 = 1.0;
 				half n2 = 1.333;
 				float cosTheta_i = abs( dot(V, N) );
 				float theta_i = acos( cosTheta_i );
@@ -103,12 +114,13 @@
 				denominator = (n1*inner) + (n2 * cosTheta_i);
 				float Rt = pow( abs(numerator/denominator), 2);
 				
-				return (Rs + Rt) / 2;
+				return (Rs + Rt) / 2 * 2;
+				*/
 			}	
 
 			float3 computeSunColor(float3 V, float3 N)
 			{
-				float3 HalfVector = normalize( abs( V + _SunDir));
+				float3 HalfVector = normalize( abs( -V + _SunDir));
 				return _SunColor * pow( abs( dot(HalfVector, N)), _SunPower);
 			}
 
@@ -287,10 +299,11 @@
 				float3 skyColor = texCUBE(_ReflMap, reflectedDir).rgb * _ReflecTivity;//flip x
 				float3 lightFinal = ambientLight + diffRefl + specRefl;
 				
-				lightFinal = lerp( lightFinal, skyColor, f) + sunColor;	
-
+				//lightFinal = lerp( lightFinal, skyColor, f);
+				lightFinal = lerp( lightFinal, skyColor, f);// + sunColor;		
+				//lightFinal = float4(sunColor, 1.0);
 				//turn float4(skyColor, 1.0);
-				return float4(lightFinal * _Color.rgb , 1.0);
+				return float4(lightFinal * _Color.rgb, 1.0);
 			}
 			ENDCG
 		}

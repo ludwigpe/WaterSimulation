@@ -24,6 +24,7 @@ public class WaterCreator : MonoBehaviour {
     public Vector4 m_speed;
     public Vector4 m_direction12;
     public Vector4 m_direction34;
+    public float m_bias = 2.0f; //A higher number will push more of the mesh verts closer to center of grid were player is. Must be >= 1
     
 
     private Matrix4x4 m_waves = Matrix4x4.zero;
@@ -33,14 +34,17 @@ public class WaterCreator : MonoBehaviour {
 	void Start () {
         if (createGrid)
         {
+            float far = Camera.main.farClipPlane;
             Mesh mesh = CreateUniformGrid();
+            //Mesh mesh = CreateRadialGrid(128, 128);
             m_grid = new GameObject("Ocean Grid");
             m_grid.AddComponent<MeshFilter>();
             m_grid.AddComponent<MeshRenderer>();
             m_grid.renderer.material = oceanMat;
             m_grid.GetComponent<MeshFilter>().mesh = mesh;
             m_grid.transform.position = this.transform.position;
-            m_grid.transform.localScale = new Vector3(1, 1, 1);//Make radial grid have a radius equal to far plane
+           // m_grid.transform.localScale = new Vector3(far, 1, far);//Make radial grid have a radius equal to far plane
+            //m_grid.transform.localScale = new Vector3(1, 1, 1);//Make radial grid have a radius equal to far plane
         }
        
 
@@ -55,16 +59,6 @@ public class WaterCreator : MonoBehaviour {
         oceanMat.SetMatrix("_Waves6", CreateWaves());
         oceanMat.SetMatrix("_Waves7", CreateWaves());
         oceanMat.SetMatrix("_Waves8", CreateWaves());
-
-        //oceanMat.SetMatrix("_Waves", CreateMockWaves());
-        //oceanMat.SetMatrix("_Waves2", CreateMockWaves());
-        //oceanMat.SetMatrix("_Waves3", CreateMockWaves());
-        //oceanMat.SetMatrix("_Waves4", CreateMockWaves());
-
-        //oceanMat.SetMatrix("_Waves5", CreateMockWaves());
-        //oceanMat.SetMatrix("_Waves6", CreateMockWaves());
-        //oceanMat.SetMatrix("_Waves7", CreateMockWaves());
-        //oceanMat.SetMatrix("_Waves8", CreateMockWaves());
 
 	}
 
@@ -100,8 +94,9 @@ public class WaterCreator : MonoBehaviour {
         { 
             float dA = m_medianAmplitude/m_numWaves;
             float amp = Random.Range(m_medianAmplitude - dA, m_medianAmplitude + dA);
-            float waveLenght = (2 * Mathf.PI * amp * m_numWaves) / (m_steepness.x);	// wavelength
-            float k = 2 * Mathf.PI / waveLenght;
+            float waveLength = (2 * Mathf.PI * amp ) / (m_steepness.x);	// wavelength
+            
+            float k = 2 * Mathf.PI / waveLength;
             float freq = Mathf.Sqrt(m_gravity * k);
             int f = (int)(freq/w0);
             freq = f * w0;
@@ -194,6 +189,62 @@ public class WaterCreator : MonoBehaviour {
                 Vector3 vertexPos = new Vector3(px, 0.0f, y * dy);
                 vertices[x + y * segmentsX] = vertexPos;
                 texcoords[x + y * segmentsX] = new Vector2(x * du, y * dv);
+            }
+        }
+
+        int[] indices = new int[segmentsX * segmentsY * 6];
+
+        int num = 0;
+        for (int x = 0; x < segmentsX - 1; x++)
+        {
+            for (int y = 0; y < segmentsY - 1; y++)
+            {
+                indices[num++] = x + y * segmentsX;
+                indices[num++] = x + (y + 1) * segmentsX;
+                indices[num++] = (x + 1) + y * segmentsX;
+
+                indices[num++] = x + (y + 1) * segmentsX;
+                indices[num++] = (x + 1) + (y + 1) * segmentsX;
+                indices[num++] = (x + 1) + y * segmentsX;
+
+            }
+        }
+
+        Mesh mesh = new Mesh();
+
+        mesh.vertices = vertices;
+        mesh.uv = texcoords;
+        mesh.normals = normals;
+        mesh.triangles = indices;
+        mesh.tangents = tangents;
+
+        return mesh;
+
+    }
+
+    Mesh CreateRadialGrid(int segmentsX, int segmentsY)
+    {
+
+        Vector3[] vertices = new Vector3[segmentsX * segmentsY];
+        Vector3[] normals = new Vector3[segmentsX * segmentsY];
+        Vector2[] texcoords = new Vector2[segmentsX * segmentsY]; //not used atm
+        Vector4[] tangents = new Vector4[segmentsX * segmentsY];
+
+        float TAU = Mathf.PI * 2.0f;
+        float r;
+        for (int x = 0; x < segmentsX; x++)
+        {
+            for (int y = 0; y < segmentsY; y++)
+            {
+                r = (float)x / (float)(segmentsX - 1);
+                r = Mathf.Pow(r, m_bias);
+
+                normals[x + y * segmentsX] = new Vector3(0, 1, 0);
+
+                vertices[x + y * segmentsX].x = r * Mathf.Cos(TAU * (float)y / (float)(segmentsY - 1));
+                vertices[x + y * segmentsX].y = 0.0f;
+                vertices[x + y * segmentsX].z = r * Mathf.Sin(TAU * (float)y / (float)(segmentsY - 1));
+                tangents[x + y * segmentsX] = new Vector4(0.0f, 0.0f, 1.0f, 1.0f);
             }
         }
 
