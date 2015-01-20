@@ -2,13 +2,22 @@
 	Properties {
 		_Color ("Main Color", Color) = (1,1,1,1)
 		_SpecColor ("Specular Color", Color) = (1.0, 1.0, 1.0, 1.0)
+		_ScatterColor ("Scatter Color", Color) = (0.3, 0.7, 0.6, 1.0)
+		_WaterDeepColor ("Deep Water Color", Color) = (0.1, 0.4, 0.7, 1.0)
+		_WaterSpecularIntensity ("Water Specular Intensity", Float) = 350
+		_WaterSpecularPower ("Water Specular Power", Float) = 1000
+		_WaterColorIntensityX ("Water Color Intensity X", Range(0.0,1.0)) = 0.1
+		_WaterColorIntensityY ("Water Color Intensity Y", Range(0.0,1.0)) = 0.2
+		_AtmosBrightColor ("Atmospheric Bright Color", Color) = (1.0, 1.1, 1.4, 1.0)
+		_AtmosDarkColor ("Atmospheric Dark Color", Color) = (0.6, 0.6, 0.7, 1.0)
 		_Shininess ("Shininess", Range(0.1, 10.0)) = 3.0
 		_SunPower ("Sun Power", Float) = 1.0
 		_NumWaves ("Number of waves", Range(1,32)) = 4
+		_OceanDepth ("Ocean Depth", Range(1,50)) = 20
 		_BumpDepth ("Bump depth", Range(0, 1.0)) = 1.0
 		_BumpMap ("Bump Map", 2D) = "bump" {}
 		_BumpMap2 ("Bump Map 2", 2D) = "bump" {}
-		_ReflecTivity("Reflectivity", Range(0.0, 5.0)) = 1.0
+		_Reflectivity("Reflectivity", Range(0.0, 1.0)) = 1.0
 		_ReflMap("Reflection Map", Cube) = "cube" {}
 	}
 	SubShader {
@@ -20,17 +29,25 @@
 
 			uniform float4 _Color;
 			uniform float4 _SpecColor;
+			uniform float4 _ScatterColor;
+			uniform float4 _WaterDeepColor;
+			uniform float _WaterSpecularIntensity;
+			uniform float _WaterSpecularPower;
+			uniform half _WaterColorIntensityX;
+			uniform half _WaterColorIntensityY;
+			uniform float4 _AtmosBrightColor;
+			uniform float4 _AtmosDarkColor;
 			uniform float _Shininess;
 			uniform half _SunPower;
 			uniform half _NumWaves;
-
+			uniform half _OceanDepth;
 			uniform half _BumpDepth;
 			uniform sampler2D _BumpMap;
 			uniform float4 _BumpMap_ST;
 			uniform sampler2D _BumpMap2;
 			uniform float4 _BumpMap2_ST;
 
-			uniform half _ReflecTivity;
+			uniform half _Reflectivity;
 			uniform samplerCUBE _ReflMap;
 			
 			// private values
@@ -120,8 +137,19 @@
 
 			float3 computeSunColor(float3 V, float3 N)
 			{
-				float3 HalfVector = normalize( abs( -V + _SunDir));
+
+				//float3 sunRefl = normalize(reflect(_SunDir, N));
+				//return _SunColor * pow( max( dot(sunRefl, V), 0.0), _SunPower);
+
+				float3 HalfVector = normalize( abs( V + (-_SunDir)));
 				return _SunColor * pow( abs( dot(HalfVector, N)), _SunPower);
+
+			}
+
+			// primitive simulation of non-uniform atmospheric fog
+			float3 CalculateFogColor(float3 pixel_to_light_vector, float3 pixel_to_eye_vector)
+			{
+				return lerp(_AtmosDarkColor,_AtmosBrightColor,0.5*dot(pixel_to_light_vector,-pixel_to_eye_vector)+0.5);
 			}
 
 			// Input struct for vertex shader
@@ -254,13 +282,25 @@
 				
 				float3 vDir = normalize( _WorldSpaceCameraPos.xyz - i.posWorld.xyz); // compute view direction (posWorld -> cameraPos)
 				float3 lDir;
-
+				float3 pixelToLight = normalize(_WorldSpaceLightPos0.xyz - i.posWorld.xyz );
+				pixelToLight = _SunDir;
+				float3 pixelToEye = normalize( _WorldSpaceCameraPos.xyz - i.posWorld.xyz);
+				float3 reflectedEyeToPixel;
+				float fresnelFactor;
+				float diffuseFactor;
+				float specularFactor;
+				float scatterFactor;
+				float shadowFactor = 0.01;
+				float4 refractionColor;
+				float4 reflectionColor;
+				float4 disturbanceEyespace;
 				float atten;
+				float waterDepth;
 				if(_WorldSpaceLightPos0.w == 0.0) //  Directional light
 				{
 					atten = 1.0;
 					lDir = normalize( _WorldSpaceLightPos0.xyz );
-					lDir = _SunDir;
+					
 				} else {
 					float3 fragToLight = _WorldSpaceLightPos0.xyz - i.posWorld ;
 					atten = 1.0 / length(fragToLight);
@@ -285,6 +325,65 @@
 				float3 nDir = normalize( mul( localCoords, local2WorldTranspose) );
 				float3 nDir2 = normalize( mul( localCoords2, local2WorldTranspose) );
 				nDir = normalize(nDir + nDir2);
+
+				// fake light scatter at crest of water
+				scatterFactor =  2.5 *max(0, i.posWorld.y * 0.25 + 0.25);
+				scatterFactor *= shadowFactor*pow(saturate( dot(normalize(float3(pixelToLight.x, 0.0, pixelToLight.z)),-pixelToEye )),2);
+				// slopes of water that are oriented back to the light gets more double refraction
+				scatterFactor *= pow( max(0.0, 1.0 - dot( pixelToLight, nDir)), 8.0);
+				scatterFactor += shadowFactor *1.5 * _WaterColorIntensityY* max( 0, i.posWorld.y + 1) * max(0, dot( pixelToEye, nDir)) * max(0, 1 -pixelToEye.y) * (300.0/length(_WorldSpaceCameraPos.xyz - i.posWorld));
+				scatterFactor = clamp(scatterFactor, 0, 0.5);
+				// Fade scatterFactor near shores TODO!!
+
+				float r = (1.2-1-0)/(1.2+1.0);
+				fresnelFactor = max(0.0, min(1.0, r+(1.0-r)*pow(1.0-dot( nDir, pixelToEye), 4)));
+				//fresnelFactor =fresnel(pixelToEye, nDir);
+				// can use CG reflect(eye, normal)?
+				//reflectedEyeToPixel = -pixelToEye + 2*dot(pixelToEye, nDir)*nDir;
+				reflectedEyeToPixel = reflect(-pixelToEye, nDir);
+				// specular factor
+				specularFactor = shadowFactor * fresnelFactor * pow(saturate(dot(pixelToLight, reflectedEyeToPixel)), _WaterSpecularPower);
+				
+				// diffuse factor
+				//diffuseFactor = atten * _LightColor0.xyz * saturate( dot(pixelToLight, nDir));
+				diffuseFactor = _WaterColorIntensityX + _WaterColorIntensityY * saturate( dot(pixelToLight, nDir)) * _LightColor0.xyz;
+				
+				// water depth
+				waterDepth = max(0, length(_WorldSpaceCameraPos.xyz - i.posWorld.xyz)*_OceanDepth);
+
+				// relfection color
+				//reflectionColor.rgb = _WaterSpecularIntensity*scatterFactor*reflectionColor*fresnelFactor;
+
+				// water color
+				float3 waterColor = diffuseFactor * lerp(_Color, _WaterDeepColor, length(_WorldSpaceCameraPos.xyz - i.posWorld)/100.0);
+				float fogDensity = 1.0/700.0;
+				waterColor.rgb=lerp(CalculateFogColor(pixelToLight,pixelToEye).rgb,waterColor.rgb,min(1,exp(-length(_WorldSpaceCameraPos.xyz-i.posWorld.xyz)*fogDensity)));
+				reflectionColor.rgb = texCUBE(_ReflMap, reflectedEyeToPixel).rgb * _Reflectivity;
+				//reflectionColor.rgb = lerp(reflectionColor, waterColor, 1.0/length(_WorldSpaceCameraPos.xyz - i.posWorld));
+				refractionColor.rgb = lerp(waterColor * 1.5, waterColor* 0.5, min(1, 1.0*exp(-waterDepth/8.0)));
+				refractionColor.rgb = diffuseFactor * lerp(_Color, _WaterDeepColor, length(_WorldSpaceCameraPos.xyz - i.posWorld)/100.0);
+
+				fresnelFactor *= min(length(_WorldSpaceCameraPos.xyz - i.posWorld.xyz)/10.0, 1.0);
+				//float3 scatterColor = float3(0.3, 0.7, 0.6);
+				float4 color;
+				float L = length(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
+				color.rgb = lerp(waterColor, reflectionColor.rgb, clamp(L*fresnelFactor/25, 0, 0.5));
+				color.rgb += _WaterSpecularIntensity*specularFactor*_SpecColor*fresnelFactor;
+				color.rgb += _ScatterColor * scatterFactor;
+				color.rgb += computeSunColor(-pixelToEye, nDir);
+
+				color.a = 1.0;
+				return color;
+
+
+
+
+
+
+
+
+
+
 			    float3 ambientLight = UNITY_LIGHTMODEL_AMBIENT.rgb * _Color.rgb;
 				// diffuse lighting
 				float3 diffRefl = atten * _LightColor0.xyz * saturate( dot( nDir, lDir) );
@@ -293,16 +392,13 @@
 
 
 				float f = fresnel(vDir, nDir);
-				//float3 skyColor = texCUBE(_ReflMap, WorldReflectionVector(IN, o.Normal)).rgb * _ReflecTivity;//* _ReflecTivity;
 				float3 reflectedDir = reflect(-vDir, normalize(nDir));
 				float3 sunColor = computeSunColor(vDir, nDir);
-				float3 skyColor = texCUBE(_ReflMap, reflectedDir).rgb * _ReflecTivity;//flip x
+				float3 skyColor = texCUBE(_ReflMap, reflectedDir).rgb * _Reflectivity;//flip x
 				float3 lightFinal = ambientLight + diffRefl + specRefl;
+			
 				
-				//lightFinal = lerp( lightFinal, skyColor, f);
-				lightFinal = lerp( lightFinal, skyColor, f);// + sunColor;		
-				//lightFinal = float4(sunColor, 1.0);
-				//turn float4(skyColor, 1.0);
+				lightFinal = lerp( lightFinal, skyColor, f) + sunColor;		
 				return float4(lightFinal * _Color.rgb, 1.0);
 			}
 			ENDCG

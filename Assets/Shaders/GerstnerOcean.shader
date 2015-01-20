@@ -40,7 +40,7 @@
 		uniform half _ReflecTivity;
 		uniform half _Shininess;
 		uniform float3 _SunDir;
-		uniform float3 _SunColor;
+		uniform float4 _SunColor;
 		uniform float _SunPower;
 		uniform int _NumWaves;
 
@@ -93,7 +93,18 @@
 		}
 
 		float fresnel(float3 V, float3 N)
-		{	half n1 = 1.0;
+		{	
+
+			half NdotL = max( dot(V, N), 0.0);
+			half fresnelBias = 0.4;
+			half fresnelPow = 5.0;
+			fresnelPow = _SunPower;
+
+			half facing  = (1.0 - NdotL);
+			return max( fresnelBias + (1-fresnelBias) * pow(facing, fresnelPow), 0.0);
+
+			/*
+			half n1 = 1.0;
 			half n2 = 1.333;
 			float cosTheta_i = abs( dot(V, N) );
 			float theta_i = acos( cosTheta_i );
@@ -107,12 +118,14 @@
 			float Rt = pow( abs(numerator/denominator), 2);
 			
 			return (Rs + Rt) / 2;
+			*/
 		}	
 
 		float3 computeSunColor(float3 V, float3 N)
 		{
-			float3 HalfVector = normalize( abs( V + _SunDir));
-			return _SunColor * pow( abs( dot(HalfVector, N)), _SunPower);
+			float3 HalfVector = normalize( abs( V + (_SunDir) ));
+			//return _SunColor * abs( dot(HalfVector, N));
+			return _SunColor * pow( abs( dot(HalfVector, N)), _SunPower) * _SunColor.a;
 		}
 
 		// return a uniform tesselation
@@ -297,11 +310,13 @@
 			float3 N = WorldNormalVector(IN, o.Normal);
 			float3 vDir = normalize(_WorldSpaceCameraPos-IN.worldPos); // inverse viewDirection, from worldPos to camera. 
 			float f = fresnel(vDir, N);
-			vDir = IN.viewDir;
-			//float3 skyColor = texCUBE(_ReflMap, WorldReflectionVector(IN, o.Normal)).rgb * _ReflecTivity;//* _ReflecTivity;
+			//vDir = IN.viewDir;
+			float3 skyColor = texCUBE(_ReflMap, WorldReflectionVector(IN, o.Normal)).rgb * _ReflecTivity;//* _ReflecTivity;
 			float3 sunColor = computeSunColor(vDir, N);
-			float3 skyColor = texCUBE(_ReflMap, WorldReflectionVector(IN, o.Normal)*float3(-1,1,1)).rgb;//flip x
-			o.Albedo = lerp(_WaterColor, skyColor, f) + sunColor;
+			//float3 skyColor = texCUBE(_ReflMap, WorldReflectionVector(IN, o.Normal)*float3(-1,1,1)).rgb;//flip x
+			float3 finalLight =  lerp(_WaterColor, skyColor, f) + sunColor;
+			o.Emission = f*(skyColor) + (sunColor);
+			o.Albedo = _WaterColor;
 
 
 

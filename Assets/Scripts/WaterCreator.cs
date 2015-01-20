@@ -36,7 +36,7 @@ public class WaterCreator : MonoBehaviour {
         {
             float far = Camera.main.farClipPlane;
             Mesh mesh = CreateUniformGrid();
-            //Mesh mesh = CreateRadialGrid(128, 128);
+            //Mesh mesh = CreateRadialGrid(m_resolutionX, m_resolutionY);
             m_grid = new GameObject("Ocean Grid");
             m_grid.AddComponent<MeshFilter>();
             m_grid.AddComponent<MeshRenderer>();
@@ -69,7 +69,7 @@ public class WaterCreator : MonoBehaviour {
   
         oceanMat.SetVector("_SunDir", sun.transform.forward*-1.0f);
         oceanMat.SetVector("_SunColor", sun.GetComponent<Light>().light.color);
-     
+        
 	}
 
     /// <summary>
