@@ -50,15 +50,25 @@ public class WaterCreator : MonoBehaviour {
 
         w0 = 2 * Mathf.PI / m_repeatTime;
         PutValuesInMatrix();
-        oceanMat.SetMatrix("_Waves", CreateWaves());
-        oceanMat.SetMatrix("_Waves2", CreateWaves());
-        oceanMat.SetMatrix("_Waves3", CreateWaves());
-        oceanMat.SetMatrix("_Waves4", CreateWaves());
+        //oceanMat.SetMatrix("_Waves", CreateWaves());
+        //oceanMat.SetMatrix("_Waves2", CreateWaves());
+        //oceanMat.SetMatrix("_Waves3", CreateWaves());
+        //oceanMat.SetMatrix("_Waves4", CreateWaves());
 
-        oceanMat.SetMatrix("_Waves5", CreateWaves());
-        oceanMat.SetMatrix("_Waves6", CreateWaves());
-        oceanMat.SetMatrix("_Waves7", CreateWaves());
-        oceanMat.SetMatrix("_Waves8", CreateWaves());
+        //oceanMat.SetMatrix("_Waves5", CreateWaves());
+        //oceanMat.SetMatrix("_Waves6", CreateWaves());
+        //oceanMat.SetMatrix("_Waves7", CreateWaves());
+        //oceanMat.SetMatrix("_Waves8", CreateWaves());
+
+        oceanMat.SetMatrix("_Waves", CreateDifferentWaves(0.1f));
+        oceanMat.SetMatrix("_Waves2", CreateDifferentWaves(0.12f));
+        oceanMat.SetMatrix("_Waves3", CreateDifferentWaves(0.45f));
+        oceanMat.SetMatrix("_Waves4", CreateDifferentWaves(0.35f));
+
+        oceanMat.SetMatrix("_Waves5", CreateDifferentWaves(0.6f));
+        oceanMat.SetMatrix("_Waves6", CreateDifferentWaves(1.4f));
+        oceanMat.SetMatrix("_Waves7", CreateDifferentWaves(0.9f));
+        oceanMat.SetMatrix("_Waves8", CreateDifferentWaves(1.5f));
 
 	}
 
@@ -97,19 +107,55 @@ public class WaterCreator : MonoBehaviour {
             float waveLength = (2 * Mathf.PI * amp ) / (m_steepness.x);	// wavelength
             
             float k = 2 * Mathf.PI / waveLength;
-            float freq = Mathf.Sqrt(m_gravity * k);
-            int f = (int)(freq/w0);
-            freq = f * w0;
+            float w2;
+            if (waveLength < 0.01)
+                w2 = m_gravity * k * (1 + (k * k) * (waveLength * waveLength));
+            else
+                w2 = m_gravity * k;
+            float w = Mathf.Sqrt(w2);
+            int f = (int)(w/w0);
+            w = f * w0;
 
             Vector2 dir = GetRandomDirection();
             dir *= k;
-            Vector4 w = new Vector4(freq, amp, dir.x, dir.y);
-            waves.SetRow(i, w);
+            Vector4 wave = new Vector4(w, amp, dir.x, dir.y);
+            waves.SetRow(i, wave);
 
         }
 
         return waves;
     }
+
+    Matrix4x4 CreateDifferentWaves(float mAmp)
+    {
+        Matrix4x4 waves = new Matrix4x4();
+        for (int i = 0; i < 4; i++)
+        {
+            float dA = mAmp / 32;
+            float amp = Random.Range(mAmp - dA, mAmp + dA);
+            float kA = Random.Range(1.0f/32, 1.0f/8);
+            //float waveLength = (2 * Mathf.PI ) / (amp * 32);	// wavelength
+            float waveLength = (2 * Mathf.PI * amp) / (kA);
+            float k = 2 * Mathf.PI / waveLength;
+            float w2;
+            if (waveLength < 0.01)
+                w2 = m_gravity * k * (1 + (k * k) * (waveLength * waveLength));
+            else
+                w2 = m_gravity * k;
+            float w = Mathf.Sqrt(w2);
+            int f = (int)(w / w0);
+            w = f * w0;
+
+            Vector2 dir = GetRandomDirection();
+            dir *= k;
+            Vector4 wave = new Vector4(w, amp, dir.x, dir.y);
+            waves.SetRow(i, wave);
+
+        }
+
+        return waves;
+    }
+
     Matrix4x4 CreateMockWaves()
     {
         Matrix4x4 waves = Matrix4x4.zero;
