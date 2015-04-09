@@ -99,7 +99,7 @@ public class Ocean : MonoBehaviour {
         m_grid = new GameObject("Ocean Grid");
         m_grid.AddComponent<MeshFilter>();
         m_grid.AddComponent<MeshRenderer>();
-        m_grid.renderer.material = m_oceanMat;
+        m_grid.GetComponent<Renderer>().material = m_oceanMat;
         m_oceanMat.SetVector("_GridSizes", m_gridSizes);
         m_grid.GetComponent<MeshFilter>().mesh = mesh;
         m_grid.transform.localScale = new Vector3(far, 1, far);//Make radial grid have a radius equal to far plane

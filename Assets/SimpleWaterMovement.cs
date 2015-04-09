@@ -11,17 +11,17 @@ public class SimpleWaterMovement : MonoBehaviour {
 	// Update is called once per frame
 	void Update () {
 
-        Vector2 offset = renderer.material.GetTextureOffset("_BumpMap");
+        Vector2 offset = GetComponent<Renderer>().material.GetTextureOffset("_BumpMap");
         offset.x += windDir.x * Time.deltaTime;
         offset.y += windDir.y * Time.deltaTime;
-        renderer.material.SetTextureOffset("_BumpMap", offset);
-        renderer.material.SetTextureOffset("_MainTex", offset);
+        GetComponent<Renderer>().material.SetTextureOffset("_BumpMap", offset);
+        GetComponent<Renderer>().material.SetTextureOffset("_MainTex", offset);
 
 
-        offset = renderer.material.GetTextureOffset("_BumpMap2");
+        offset = GetComponent<Renderer>().material.GetTextureOffset("_BumpMap2");
         offset.x += -windDir.x * Time.deltaTime;
         offset.y += windDir.y * Time.deltaTime;
-        renderer.material.SetTextureOffset("_BumpMap2", offset);
+        GetComponent<Renderer>().material.SetTextureOffset("_BumpMap2", offset);
 
         
 	}

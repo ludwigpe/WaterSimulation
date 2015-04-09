@@ -1,6 +1,20 @@
 ﻿using UnityEngine;
 using System.Collections;
+struct Wave
+{
+    public float freq;  // 2*PI / wavelength
+    public float amp;   // amplitude
+    public float phase; // speed * 2*PI / wavelength
+    public Vector2 dir;
 
+    public Wave(float f, float a, float p, Vector2 d)
+    {
+        this.freq = f;
+        this.amp = a;
+        this.phase = p;
+        this.dir = d;
+    }
+};
 public class WaterCreator : MonoBehaviour {
     public bool createGrid = false;
     public int m_width;
@@ -28,6 +42,7 @@ public class WaterCreator : MonoBehaviour {
     
 
     private Matrix4x4 m_waves = Matrix4x4.zero;
+    private ComputeBuffer m_waveBuffer;
     private float w0;
     private GameObject m_grid;
 	// Use this for initialization
@@ -40,7 +55,7 @@ public class WaterCreator : MonoBehaviour {
             m_grid = new GameObject("Ocean Grid");
             m_grid.AddComponent<MeshFilter>();
             m_grid.AddComponent<MeshRenderer>();
-            m_grid.renderer.material = oceanMat;
+            m_grid.GetComponent<Renderer>().material = oceanMat;
             m_grid.GetComponent<MeshFilter>().mesh = mesh;
             m_grid.transform.position = this.transform.position;
            // m_grid.transform.localScale = new Vector3(far, 1, far);//Make radial grid have a radius equal to far plane
@@ -50,15 +65,39 @@ public class WaterCreator : MonoBehaviour {
 
         w0 = 2 * Mathf.PI / m_repeatTime;
         PutValuesInMatrix();
-        oceanMat.SetMatrix("_Waves", CreateWaves());
-        oceanMat.SetMatrix("_Waves2", CreateWaves());
-        oceanMat.SetMatrix("_Waves3", CreateWaves());
-        oceanMat.SetMatrix("_Waves4", CreateWaves());
+        //oceanMat.SetMatrix("_Waves", CreateWaves());
+        //oceanMat.SetMatrix("_Waves2", CreateWaves());
+        //oceanMat.SetMatrix("_Waves3", CreateWaves());
+        //oceanMat.SetMatrix("_Waves4", CreateWaves());
 
-        oceanMat.SetMatrix("_Waves5", CreateWaves());
-        oceanMat.SetMatrix("_Waves6", CreateWaves());
-        oceanMat.SetMatrix("_Waves7", CreateWaves());
-        oceanMat.SetMatrix("_Waves8", CreateWaves());
+        //oceanMat.SetMatrix("_Waves5", CreateWaves());
+        //oceanMat.SetMatrix("_Waves6", CreateWaves());
+        //oceanMat.SetMatrix("_Waves7", CreateWaves());
+        //oceanMat.SetMatrix("_Waves8", CreateWaves());
+
+        //oceanMat.SetMatrix("_Waves", CreateDifferentWaves(0.1f));
+        //oceanMat.SetMatrix("_Waves2", CreateDifferentWaves(0.12f));
+        //oceanMat.SetMatrix("_Waves3", CreateDifferentWaves(0.45f));
+        //oceanMat.SetMatrix("_Waves4", CreateDifferentWaves(0.35f));
+
+        //oceanMat.SetMatrix("_Waves5", CreateDifferentWaves(0.6f));
+        //oceanMat.SetMatrix("_Waves6", CreateDifferentWaves(1.4f));
+        //oceanMat.SetMatrix("_Waves7", CreateDifferentWaves(0.9f));
+        //oceanMat.SetMatrix("_Waves8", CreateDifferentWaves(1.5f));
+
+        int WaveSize = sizeof(float)*5;
+        Wave[] waves = new Wave[m_numWaves];
+        m_waveBuffer = new ComputeBuffer(32, WaveSize);
+        
+        for(int i = 0; i < m_numWaves; i++)
+        {
+            float medianAmplitude = Random.Range(0.15f, 1.5f);
+            waves[i] = CreateWave(medianAmplitude);
+        
+        }
+        m_waveBuffer.SetData(waves);
+        oceanMat.SetBuffer("waveBuffer", m_waveBuffer);
+        oceanMat.SetInt("_NumCreatedWaves", m_numWaves);
 
 	}
 
@@ -68,7 +107,7 @@ public class WaterCreator : MonoBehaviour {
  
   
         oceanMat.SetVector("_SunDir", sun.transform.forward*-1.0f);
-        oceanMat.SetVector("_SunColor", sun.GetComponent<Light>().light.color);
+        oceanMat.SetVector("_SunColor", sun.GetComponent<Light>().GetComponent<Light>().color);
         
 	}
 
@@ -97,19 +136,80 @@ public class WaterCreator : MonoBehaviour {
             float waveLength = (2 * Mathf.PI * amp ) / (m_steepness.x);	// wavelength
             
             float k = 2 * Mathf.PI / waveLength;
-            float freq = Mathf.Sqrt(m_gravity * k);
-            int f = (int)(freq/w0);
-            freq = f * w0;
+            float w2;
+            if (waveLength < 0.01)
+                w2 = m_gravity * k * (1 + (k * k) * (waveLength * waveLength));
+            else
+                w2 = m_gravity * k;
+            float w = Mathf.Sqrt(w2);
+            int f = (int)(w/w0);
+            w = f * w0;
 
             Vector2 dir = GetRandomDirection();
             dir *= k;
-            Vector4 w = new Vector4(freq, amp, dir.x, dir.y);
-            waves.SetRow(i, w);
+            Vector4 wave = new Vector4(w, amp, dir.x, dir.y);
+            waves.SetRow(i, wave);
 
         }
 
         return waves;
     }
+
+    Matrix4x4 CreateDifferentWaves(float mAmp)
+    {
+        Matrix4x4 waves = new Matrix4x4();
+        for (int i = 0; i < 4; i++)
+        {
+            float dA = mAmp / 32;
+            float amp = Random.Range(mAmp - dA, mAmp + dA);
+            float kA = Random.Range(1.0f/32, 1.0f/8);
+            //float waveLength = (2 * Mathf.PI ) / (amp * 32);	// wavelength
+            float waveLength = (2 * Mathf.PI * amp) / (kA);
+            float k = 2 * Mathf.PI / waveLength;
+            float w2;
+            if (waveLength < 0.01)
+                w2 = m_gravity * k * (1 + (k * k) * (waveLength * waveLength));
+            else
+                w2 = m_gravity * k;
+            float w = Mathf.Sqrt(w2);
+            int f = (int)(w / w0);
+            w = f * w0;
+
+            Vector2 dir = GetRandomDirection();
+            dir *= k;
+            Vector4 wave = new Vector4(w, amp, dir.x, dir.y);
+            waves.SetRow(i, wave);
+
+        }
+        
+        return waves;
+    }
+
+    Wave CreateWave(float mAmp)
+    {
+        float dA = mAmp / 32;
+        float amp = Random.Range(mAmp - dA, mAmp + dA);
+        float kA = Random.Range(1.0f / 32, 1.0f / 8);
+        //float waveLength = (2 * Mathf.PI ) / (amp * 32);	// wavelength
+        float waveLength = (2 * Mathf.PI * amp) / (kA);
+        float k = 2 * Mathf.PI / waveLength;
+        float w2;
+        if (waveLength < 0.01)
+            w2 = m_gravity * k * (1 + (k * k) * (waveLength * waveLength));
+        else
+            w2 = m_gravity * k;
+        float w = Mathf.Sqrt(w2);
+        int f = (int)(w / w0);
+        w = f * w0;
+
+        Vector2 dir = GetRandomDirection();
+        dir *= k;
+        float phase = 0.10f;
+        return new Wave(w, amp, phase, dir);
+     
+
+    }
+
     Matrix4x4 CreateMockWaves()
     {
         Matrix4x4 waves = Matrix4x4.zero;
@@ -276,5 +376,10 @@ public class WaterCreator : MonoBehaviour {
 
         return mesh;
 
+    }
+
+    void OnDestroy()
+    {
+        m_waveBuffer.Release();
     }
 }

@@ -65,6 +65,7 @@
 		float getHeightFromWave(float2 P, Wave W, float t)
 		{
 			float inner = sin( dot(W.dir, P) * W.freq + W.phase*t);
+			/*
 			if(sharp)
 			{
 				return 2* W.amp * pow(((inner + 1) / 2), _Sharpness);
@@ -73,6 +74,7 @@
 			{
 				return W.amp * inner;
 			}
+			*/
 			return W.amp * sin( dot(W.dir, P) * W.freq + W.phase*t);
 		}
 		
