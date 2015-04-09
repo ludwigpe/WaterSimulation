@@ -181,6 +181,36 @@ public class WaterCreator : MonoBehaviour {
             waves.SetRow(i, wave);
 
         }
+
+        return waves;
+    }
+
+    Matrix4x4 CreateDifferentWaves(float mAmp)
+    {
+        Matrix4x4 waves = new Matrix4x4();
+        for (int i = 0; i < 4; i++)
+        {
+            float dA = mAmp / 32;
+            float amp = Random.Range(mAmp - dA, mAmp + dA);
+            float kA = Random.Range(1.0f/32, 1.0f/8);
+            //float waveLength = (2 * Mathf.PI ) / (amp * 32);	// wavelength
+            float waveLength = (2 * Mathf.PI * amp) / (kA);
+            float k = 2 * Mathf.PI / waveLength;
+            float w2;
+            if (waveLength < 0.01)
+                w2 = m_gravity * k * (1 + (k * k) * (waveLength * waveLength));
+            else
+                w2 = m_gravity * k;
+            float w = Mathf.Sqrt(w2);
+            int f = (int)(w / w0);
+            w = f * w0;
+
+            Vector2 dir = GetRandomDirection();
+            dir *= k;
+            Vector4 wave = new Vector4(w, amp, dir.x, dir.y);
+            waves.SetRow(i, wave);
+
+        }
         
         return waves;
     }
