@@ -1,4 +1,7 @@
-﻿Shader "Custom/gerstnerWater" {
+﻿// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
+// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
+Shader "Custom/gerstnerWater" {
 	Properties {
 		_Color ("Main Color", Color) = (1,1,1,1)
 		_SpecColor ("Specular Color", Color) = (1,1,1,1)
@@ -199,11 +202,11 @@
 			vIn.vertex.x += gerstnerTot.x;
 			vIn.vertex.z += gerstnerTot.z;
 			vIn.vertex.y = gerstnerTot.y;
-			vOut.pos = mul(UNITY_MATRIX_MVP, vIn.vertex);		// transform from local to screen space
-			vOut.posWorld = mul(_Object2World, vIn.vertex);		// transform from local to world space
-			vOut.normalDir = normalize( mul(float4(N, 0.0), _Object2World).xyz );
-			vOut.tangentWorld = normalize( mul( float4(T, 0.0), _Object2World).xyz );
-			vOut.binormalWorld = normalize( mul( float4(B, 0.0), _Object2World).xyz );
+			vOut.pos = UnityObjectToClipPos(vIn.vertex);		// transform from local to screen space
+			vOut.posWorld = mul(unity_ObjectToWorld, vIn.vertex);		// transform from local to world space
+			vOut.normalDir = normalize( mul(float4(N, 0.0), unity_ObjectToWorld).xyz );
+			vOut.tangentWorld = normalize( mul( float4(T, 0.0), unity_ObjectToWorld).xyz );
+			vOut.binormalWorld = normalize( mul( float4(B, 0.0), unity_ObjectToWorld).xyz );
 			vOut.tex = vIn.texcoord;
 
 			/*vOut.normalDir = N;

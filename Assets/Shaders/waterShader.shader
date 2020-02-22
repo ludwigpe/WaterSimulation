@@ -1,4 +1,7 @@
-﻿Shader "Custom/WaterShader" {
+﻿// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
+// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
+Shader "Custom/WaterShader" {
 	Properties {
 		_Color ("Main Color", Color) = (1,1,1,1)
 		_SpecColor ("Specular Color", Color) = (1.0, 1.0, 1.0, 1.0)
@@ -265,11 +268,11 @@
 				vIn.vertex.x -= newPos.x;
 				vIn.vertex.z -= newPos.z;
 				vIn.vertex.y = newPos.y;
-				vOut.pos = mul(UNITY_MATRIX_MVP, vIn.vertex);		// transform from local to screen space
-				vOut.posWorld = mul(_Object2World, vIn.vertex);		// transform from local to world space
+				vOut.pos = UnityObjectToClipPos(vIn.vertex);		// transform from local to screen space
+				vOut.posWorld = mul(unity_ObjectToWorld, vIn.vertex);		// transform from local to world space
 				//vOut.posWorld = mul(_Object2World, vIn.vertex);		// transform from local to world space
-				vOut.tangentWorld = normalize( mul( float4(tangent.xyz, 0.0), _Object2World).xyz);
-				vOut.binormalWorld = normalize( mul( float4(binormal.xyz, 0.0), _Object2World).xyz);
+				vOut.tangentWorld = normalize( mul( float4(tangent.xyz, 0.0), unity_ObjectToWorld).xyz);
+				vOut.binormalWorld = normalize( mul( float4(binormal.xyz, 0.0), unity_ObjectToWorld).xyz);
 				vOut.normalDir = normalize( cross( vOut.tangentWorld, vOut.binormalWorld) * vIn.tangent.w);
 				vOut.tex = vIn.texcoord;
 				//vOut.pos = mul(UNITY_MATRIX_MVP, vIn.vertex);		// transform from local to screen space

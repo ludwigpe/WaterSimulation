@@ -1,4 +1,6 @@
-﻿Shader "custom/ShockWave" {
+﻿// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
+
+Shader "custom/ShockWave" {
 	Properties {
 		_Color ("Main Color", Color) = (1,1,1,1)
 		_SpecColor ("Specular Color", Color) = (0.5, 0.5, 0.5, 1)
@@ -43,7 +45,7 @@
 
 		void vert (inout appdata_full v, out Input o) {
 			UNITY_INITIALIZE_OUTPUT(Input,o);
-			half4 worldPos = mul(_Object2World, v.vertex);
+			half4 worldPos = mul(unity_ObjectToWorld, v.vertex);
 		
 			// diff between shockwave radial position and vertex position
 			half pi = 3.14159;

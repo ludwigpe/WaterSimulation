@@ -1,4 +1,6 @@
-﻿Shader "Custom/tesselatedWater" {
+﻿// Upgrade NOTE: replaced '_World2Object' with 'unity_WorldToObject'
+
+Shader "Custom/tesselatedWater" {
 	Properties {
 		_Tess ("Tessellation", Range(1,32)) = 4
 		_Color ("Main Color", Color) = (1,1,1,1)
@@ -153,7 +155,7 @@
 			vIn.vertex.z += gerstnerTot.z;
 			vIn.vertex.y = gerstnerTot.y;
 
-			vIn.normal = normalize( mul(float4(N, 0.0), _World2Object).xyz );
+			vIn.normal = normalize( mul(float4(N, 0.0), unity_WorldToObject).xyz );
 		}
 		struct Input {
 			float2 uv_MainTex;
